@@ -1,0 +1,5 @@
+*.swp
+*.exe
+*.txt
+playground.c
+*.o
