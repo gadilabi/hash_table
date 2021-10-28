@@ -17,7 +17,7 @@ int hash(char * key, int mod);
 void * ht_get_pair(HashTable * ht, char * key);
 void * ht_get_value(HashTable * ht, char * key);
 char ** ht_get_keys(HashTable * ht);
-void ht_delete(HashTable * ht, char * key);
+int ht_delete(HashTable * ht, char * key);
 void ht_insert(struct ht * ht , char * key, void * value);
 void resizeTable(struct ht * ht);
 Pair * createPair(char * key, void * value);
@@ -172,6 +172,11 @@ void ht_insert(struct ht * ht , char * key, void * value){
 }
 
 void * ht_get_pair(HashTable * ht, char * key){
+
+	// If the table is empty return NULL
+	if(ht->nmem==0)
+		return NULL;
+
 	// Calculate the hash value for the key
 	int hashedIndex = hash(key, ht->length);
 	int finalIndex = hashedIndex;
@@ -221,6 +226,10 @@ void * ht_get_pair(HashTable * ht, char * key){
 
 char ** ht_get_keys(HashTable * ht){
 
+	// If table is empty return NULL
+	if(ht->nmem==0)
+		return NULL;
+
 	// the number of keys should be the same as the 
 	// number of entries in the table
 	char ** keys = calloc(ht->nmem, sizeof(char *));	
@@ -243,6 +252,11 @@ char ** ht_get_keys(HashTable * ht){
 }
 
 void * ht_get_value(HashTable * ht, char * key){
+
+	// If the table is empty return NULL
+	if(ht->nmem==0)
+		return NULL;
+
 	// Calculate the hash value for the key
 	int hashedIndex = hash(key, ht->length);
 	int finalIndex = hashedIndex;
@@ -290,18 +304,41 @@ void * ht_get_value(HashTable * ht, char * key){
 	return value;
 }
 
-void ht_delete(HashTable * ht, char * key){
+int ht_delete(HashTable * ht, char * key){
+
+	// If table is empty return -1
+	if(ht->nmem == 0)
+		return -1;
+
 	Pair * p = ht_get_pair(ht, key);
+
+	// If no such key then return -1
+	if(p==NULL) return -1;
+
+	// If key is found then then nulify the pair
+	// dec the nmem field and return 0
 	p->key = NULL;
 	p->value = NULL;
 	ht->nmem--;
+
+	return 0;
+}
+
+void ht_free(HashTable * ht, int (* usr_free)(void * garbage_value)){
+	
+	// loop over the table and free each value
+	// then free the pair itself
+	for(int i=0; i<ht->length; i++){
+		
+	}
+
 }
 
 int main(void){
 
-	int size = 10000000;
+	int size = 200;
 	HashTable * ht = create_ht(size);
-	int nmem = 1000000;
+	int nmem = 3;
 
 	char * key;
 	char * value;
@@ -314,19 +351,20 @@ int main(void){
 	}
 
 	char ** keys = ht_get_keys(ht);
+	ht_delete(ht, "key 0");
+	ht_delete(ht, "key 1");
+	ht_delete(ht, "key 2");
+	ht_delete(ht, "key 2");
 
 	//clock_t start = clock();
-	for(int i=0; i<500000; i++){
-		char * key = keys[i];
-		//key = malloc(32);
-		//sprintf(key, "key %d", i);
+	for(int i=0; i<nmem; i++){
+		//char * key = keys[i];
+		key = malloc(32);
+		sprintf(key, "key %d", i);
 		char * value = (char *) ht_get_value(ht, key);
-		//printf("%s : %s\n", key, value);
+		if(value==NULL) printf("no such key\n");
+		else printf("%s : %s\n", key, value);
 	}
 
-	clock_t length = clock()/CLOCKS_PER_SEC;
-	//clock_t length = (end - start)/CLOCKS_PER_SEC ;
-	printf("%f\n", (double)length);
-	printf("%f\n", (double)length);
 
 }
