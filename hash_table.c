@@ -20,23 +20,24 @@ char ** ht_get_keys(HashTable * ht);
 int ht_delete(HashTable * ht, char * key);
 void ht_insert(struct ht * ht , char * key, void * value);
 void resizeTable(struct ht * ht);
-Pair * createPair(char * key, void * value);
-struct ht * create_ht(int length);
-void die(const char * msg);
+struct ht * ht_create(int length);
+void ht_set_free(struct ht * ht, void (* usr_free)(void * garbage_value));
+void ht_free(HashTable * ht);
+static void die(const char * msg);
 
 struct ht{
 	Pair * arr; // Array to store the values
 	int length; // The size allocated for arr
 	int nmem; // current number of members in the array
-	char ** keys; // Array of all the keys entered
-} ;
+	void (* usr_free)(void * garbage_value); // custom free function
+};
 
 struct key_value{
 	char * key;
 	void * value;
 } ;
 
-void die(const char * msg){
+static void die(const char * msg){
 	printf("%s\n", msg);
 	exit(-1);
 }
@@ -52,14 +53,19 @@ int hash(char * key, int mod){
 	return h;
 }
 
-struct ht * create_ht(int length){
+struct ht * ht_create(int length){
 	HashTable * ht = malloc(sizeof(HashTable));
 	ht->arr = calloc(length, sizeof(Pair));
-	ht->keys = calloc(length, sizeof(char *));
 	ht->length = length;
 	ht->nmem = 0;
+	ht->usr_free = NULL;
 
 	return ht;
+}
+
+
+void ht_set_free(struct ht * ht, void (* usr_free)(void * garbage_value)){
+	ht->usr_free = usr_free;
 }
 
 Pair * createPair(char * key, void * value){
@@ -102,7 +108,6 @@ void resizeTable(struct ht * ht){
 
 	// Copy the table members into the new array
 	for(int i=0; i < ht->nmem; i++){
-		key = ht->keys[i];
 		value = ht_get_value(ht_copy, key);
 		ht_insert(ht, key, value);
 	}
@@ -125,9 +130,6 @@ void ht_insert(struct ht * ht , char * key, void * value){
 		isResize = false;
 	}
 
-	// Create a key value pair
-	Pair * p = createPair(key, value);
-
 	// Calculate the hash value for the key
 	int hashedIndex = hash(key, ht->length);
 
@@ -142,7 +144,8 @@ void ht_insert(struct ht * ht , char * key, void * value){
 
 		// if free space in found stop probing
 		if(isNull){
-			ht->arr[finalIndex] = *p;
+			ht->arr[finalIndex].key = key;
+			ht->arr[finalIndex].value = value;
 			ht->nmem++;
 			break;
 		}
@@ -156,7 +159,8 @@ void ht_insert(struct ht * ht , char * key, void * value){
 		// If we reached an entry with the same key
 		// update the entry
 		if(same_key){
-			ht->arr[finalIndex] = *p;
+			ht->arr[finalIndex].key = key;
+			ht->arr[finalIndex].value = value;
 			break;
 		}
 
@@ -315,56 +319,115 @@ int ht_delete(HashTable * ht, char * key){
 	// If no such key then return -1
 	if(p==NULL) return -1;
 
-	// If key is found then then nulify the pair
-	// dec the nmem field and return 0
+	// If the entry is found we need to free the value
+	// and the key  
+
+	// Check if user supplied with custom free function
+	// if so use it, else just use free
+	if(ht->usr_free!=NULL)
+		ht->usr_free(p->value);
+	else
+		free(p->value);
+
+	// Free the key
+	free(p->key);
+
+	// Nullify the two values
 	p->key = NULL;
 	p->value = NULL;
+
+	// dec the nmem field
 	ht->nmem--;
 
+	// return success
 	return 0;
 }
 
-void ht_free(HashTable * ht, int (* usr_free)(void * garbage_value)){
+void ht_free(HashTable * ht){
 	
-	// loop over the table and free each value
+	// loop over the table and free each value and key
 	// then free the pair itself
 	for(int i=0; i<ht->length; i++){
+		Pair * p = &ht->arr[i];
+
+		// If the pair is empty continue
+		if(p->key==NULL){
+			continue;
+		}
+
+		// If the pair is not empty free the key and value
+		free(p->key);
+
+		// since the value can have nested values it might
+		// need freeing check if the user has provided a 
+		// custom free function as a callback and if so use it
+		// otherwise simply free the value
+
+		if(ht->usr_free==NULL){
+			free(p->value);
+			continue;
+		}else{
+			ht->usr_free(p->value);
+		}
 		
 	}
 
+	// free the array holding the table entries
+	free(ht->arr);
+
+	// free the table itself
+	free(ht);
+
+}
+
+struct test{
+	char * str;
+};
+
+void cfree(void * value){
+	char * str = ((struct test *) value)->str;
+	free(str);
+	free(value);
 }
 
 int main(void){
 
-	int size = 200;
-	HashTable * ht = create_ht(size);
+	int size = 20;
+	HashTable * ht = ht_create(size);
 	int nmem = 3;
 
 	char * key;
-	char * value;
+	//char * value;
+	struct test * value;
 	for(int i=0; i<nmem; i++){
 		key = malloc(32);
-		value = malloc(32);
+		//value = malloc(32);
+		value = malloc(sizeof(struct test));
+		value->str = malloc(32);
 		sprintf(key, "key %d", i);
-		sprintf(value, "value %d", i);
+		sprintf(value->str, "value %d", i);
 		ht_insert(ht, key, value);
 	}
 
-	char ** keys = ht_get_keys(ht);
-	ht_delete(ht, "key 0");
-	ht_delete(ht, "key 1");
-	ht_delete(ht, "key 2");
-	ht_delete(ht, "key 2");
+	//char ** keys = ht_get_keys(ht);
+	//ht_delete(ht, "key 0");
+	//ht_delete(ht, "key 1");
+	//ht_delete(ht, "key 2");
+	//ht_delete(ht, "key 2");
 
 	//clock_t start = clock();
 	for(int i=0; i<nmem; i++){
 		//char * key = keys[i];
 		key = malloc(32);
 		sprintf(key, "key %d", i);
-		char * value = (char *) ht_get_value(ht, key);
+		Pair * pair  =  ht_get_pair(ht, key);
 		if(value==NULL) printf("no such key\n");
-		else printf("%s : %s\n", key, value);
+		else printf("%s : %s\n", key, ((struct test *) pair->value)->str);
+		free(key);
 	}
+
+	ht_set_free(ht, cfree);
+	ht_free(ht);
 
 
 }
