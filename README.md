@@ -2,13 +2,13 @@
 This is a simple implemetation of a generic hash table in c.
 The keys must be strings but the values can be anything you wish.
 In the case of a collision it uses linear probing to find an empty spot.
-When the table is 20% full is is resized by 10, these two values can be
-easily changed by changing the appropriate macros.
+When the table is 20% full is is doubled in size, both the resize threshold
+and resizing factor can easily customized by changing the appropriate macros.
 
 The hash table DOES NOT COPY the values inserted which means that:
 * Every key and value inserted into the table must already be on the heap
 otherwise they will be lost once the function call returns.
-* You must not free any value you have inserted into the table, and when the table is no longer needed use the designated function to free all entries in the table. 
+* You must not free any value you have inserted into the table.
 
 ## Files
 hash\_table.c 
@@ -44,6 +44,13 @@ void ht_free(HashTable * ht);
 static void die(const char * msg);
 ```
 
+## Macros
+```c
+#define HASH_PRIME 31 // A constant used in hashing
+#define RESIZE_THRESHOLD 0.2 // Threshold for resizing
+#define RESIZE_FACTOR 2 // factor used to resize the table
+```
+
 ## Description
 First a hash table must be created using the ht\_create function.
 This function takes one parameter which is the initial size of the table.
@@ -51,7 +58,7 @@ Notice that this is not the size in bytes but the number of key-value
 pairs the table can hold.
 The size of the table is dynamic so this number will be updated
 as the table is being filled, however the process of resizing the table
-which includes the need to copy over every entry is very expensive, and 
+which entails copying every entry is very expensive, and 
 so it is important to choose an appropriate initial size in order to 
 minimize the number of resizes. It should also be noted that a table of
 size N will actually be resized when N/5 entries will be inserted. This is because
@@ -69,30 +76,35 @@ The ht\_get\_keys function retrieves an array of all keys in the table.
 
 Entries can be deleted from the table using the ht\_delete function,
 which deletes an entry given a key.
-Notice that the values deleted are also freed, and so cannot be used 
-anymore.
+Notice that the values deleted are also freed, so a copy has to be made
+if the value is still needed.
 
-The set\_free function sets a the usr\_free field in the hash table struct.
-It takes the hash table to be updated and function which will be set as
-the usr\_free field.
+The set\_free function sets the usr\_free field in the hash table struct.
+It takes two parameters: the hash table whose usr\_free field needs setting 
+and a function pointer which is going to be value of usr\_free field of the hash table struct.
 When this field is set it will be used to free the value of every entry
-which is either deleted or free when using the ht\_free function.
-
-The ht\_free function frees all the memory used for the table.
-When the usr\_free field is set, it will use this function to free the
-value. This is needed when the value itself is complex and contains
+freed, either when deleted or when the table is destroyed by the ht\_free function.
+This is needed when the value itself is complex and contains
 pointers that need freeing.
 
-Finally there are functions which are not a part of the api but are extremely important and that the user can replace or modify their behaviour.
+The ht\_free function frees all the memory used for the table.
+When the usr\_free field is set, it will be used to free the
+value. 
+
+Finally, there are functions which are not a part of the API but are extremely
+important and can be easily modified by the user.
 
 The hash function is obviously of paramount importance to an efficient 
 hash table.
-It is extremely easy to replace the hash function without the need to changeanything else in the code.
+It is extremely easy to replace the hash function without the need to change 
+anything else in the code.
 
-The second function 
-
-
-
-
-
-
+The resizeTable function, is used to (surprise surprise...) resize the table.
+That means allocating a bigger chunk of memmory whenever the table is too full.
+This raises the question: what constitutes as "too full", and by how much should we increase the
+size of the table?
+There are no definitive answers for either of this questions, so in this implementation
+I chose to double the table size whenever it is 20% full, which seemed reasonable to me.
+There is a tradeoff between memmory usage and efficiency, and every user should choose
+the tradeoff that suits his needs best.
+The user can customize this behaviour by changing the  RESIZE\_THRESHOLD and RESIZE\_FACTOR macros.

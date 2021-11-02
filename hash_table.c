@@ -7,7 +7,7 @@
 
 #define HASH_PRIME 31
 #define RESIZE_THRESHOLD 0.2
-
+#define RESIZE_FACTOR 2
 // typedefs
 typedef struct ht HashTable;
 typedef struct key_value Pair;
@@ -86,7 +86,7 @@ void resizeTable(struct ht * ht){
 	memcpy(ht_copy, ht, sizeof(HashTable));
 
 	// By how much the table is going to grow
-	int gfactor = 10;
+	int gfactor = RESIZE_FACTOR;
 	
 	// Create a new table with larger size
 	int newLength = gfactor *  ht->length;
