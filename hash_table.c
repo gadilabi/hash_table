@@ -106,28 +106,29 @@ void resizeTable(struct ht * ht){
 	char * key;
 	void * value;
 
+	char ** keys = ht_get_keys(ht_copy);
+
 	// Copy the table members into the new array
-	for(int i=0; i < ht->nmem; i++){
+	for(int i=0; i < ht_copy->nmem; i++){
+		key = keys[i];
 		value = ht_get_value(ht_copy, key);
 		ht_insert(ht, key, value);
 	}
 
+	free(keys);
+	free(ht_copy->arr);
 	free(ht_copy);
 
 }
 
 void ht_insert(struct ht * ht , char * key, void * value){
 
-	static bool isResize = false;
-
 	// Check if the array is too full 
 	// if it is resize it
 	float filledRatio = (ht->nmem + 1)/((float)ht->length);
 
 	if(filledRatio > RESIZE_THRESHOLD){
-		isResize = true;
 		resizeTable(ht);
-		isResize = false;
 	}
 
 	// Calculate the hash value for the key
@@ -159,7 +160,6 @@ void ht_insert(struct ht * ht , char * key, void * value){
 		// If we reached an entry with the same key
 		// update the entry
 		if(same_key){
-			ht->arr[finalIndex].key = key;
 			ht->arr[finalIndex].value = value;
 			break;
 		}
@@ -394,7 +394,7 @@ int main(void){
 
 	int size = 20;
 	HashTable * ht = ht_create(size);
-	int nmem = 3;
+	int nmem = 9;
 
 	char * key;
 	//char * value;
