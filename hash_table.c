@@ -4,45 +4,14 @@
 #include <string.h>
 #include <stdbool.h>
 #include <time.h>
-
-#define HASH_PRIME 31
-#define RESIZE_THRESHOLD 0.2
-#define RESIZE_FACTOR 2
-// typedefs
-typedef struct ht HashTable;
-typedef struct key_value Pair;
-
-// function declarations
-int hash(char * key, int mod);
-void * ht_get_pair(HashTable * ht, char * key);
-void * ht_get_value(HashTable * ht, char * key);
-char ** ht_get_keys(HashTable * ht);
-int ht_delete(HashTable * ht, char * key);
-void ht_insert(struct ht * ht , char * key, void * value);
-void resizeTable(struct ht * ht);
-struct ht * ht_create(int length);
-void ht_set_free(struct ht * ht, void (* usr_free)(void * garbage_value));
-void ht_free(HashTable * ht);
-static void die(const char * msg);
-
-struct ht{
-	Pair * arr; // Array to store the values
-	int length; // The size allocated for arr
-	int nmem; // current number of members in the array
-	void (* usr_free)(void * garbage_value); // custom free function
-};
-
-struct key_value{
-	char * key;
-	void * value;
-} ;
+#include "hash_table.h"
 
 static void die(const char * msg){
 	printf("%s\n", msg);
 	exit(-1);
 }
 
-int hash(char * key, int mod){
+static int hash(char * key, int mod){
 	int h = 0;
 	for(int i=0; key[i]!='\0'; i++){
 		h = (HASH_PRIME * h + key[i])%mod ;
@@ -76,7 +45,7 @@ Pair * createPair(char * key, void * value){
 	return p;
 }
 
-void resizeTable(struct ht * ht){
+static void resizeTable(struct ht * ht){
 
 	// Create a superficial copy of the table
 	// this copy is used to get the values and copy them into the new
@@ -160,6 +129,15 @@ void ht_insert(struct ht * ht , char * key, void * value){
 		// If we reached an entry with the same key
 		// update the entry
 		if(same_key){
+			// free the old key and value
+			free(ht->arr[finalIndex].key);
+			if(ht->usr_free==NULL)
+				free(ht->arr[finalIndex].value);
+			else
+				ht->usr_free(ht->arr[finalIndex].value);
+
+			// Enter new key and value
+			ht->arr[finalIndex].key = key;
 			ht->arr[finalIndex].value = value;
 			break;
 		}
@@ -195,7 +173,7 @@ void * ht_get_pair(HashTable * ht, char * key){
 		// if we reach an empty slot it mean no such key
 		if(ht->arr[finalIndex].value==NULL)
 			return NULL;
-		
+
 		// Does the entry has the same key as the one being entered
 		bool same_key = strncmp(ht->arr[finalIndex].key, key, strlen(key))==0;
 
@@ -243,12 +221,12 @@ char ** ht_get_keys(HashTable * ht){
 	char * key;
 	int key_index = 0;
 	for(int i=0; i<ht->length; i++){
-		
+
 		key = ht->arr[i].key;
 		if(key==NULL) continue;
 		keys[key_index] = key;
 		key_index++;
-		
+
 	}
 
 	return keys;
@@ -275,7 +253,7 @@ void * ht_get_value(HashTable * ht, char * key){
 		// if we reach an empty slot it mean no such key
 		if(ht->arr[finalIndex].value==NULL)
 			return NULL;
-		
+
 		// Does the entry has the same key as the one being entered
 		bool same_key = strncmp(ht->arr[finalIndex].key, key, strlen(key))==0;
 
@@ -344,7 +322,7 @@ int ht_delete(HashTable * ht, char * key){
 }
 
 void ht_free(HashTable * ht){
-	
+
 	// loop over the table and free each value and key
 	// then free the pair itself
 	for(int i=0; i<ht->length; i++){
@@ -369,7 +347,7 @@ void ht_free(HashTable * ht){
 		}else{
 			ht->usr_free(p->value);
 		}
-		
+
 	}
 
 	// free the array holding the table entries
@@ -380,28 +358,52 @@ void ht_free(HashTable * ht){
 
 }
 
+/* 
+   This is a simple working example of using the hash table.
+   We create a table, populate it with values of type test.
+   We erase a few entries and update others.
+   We print every entry of the table.
+   Finally the table is destoryed.
+
+   Notice that I have chosen to populate the table with a mock
+   struct in order to demonstrate the generic nature of the 
+   hash table, and so we can show how to use a custom free
+   function to free the table when it is populated with complex
+   values.
+ */
+
+// Mock struct
 struct test{
 	char * str;
 };
 
+// Custom free function to free the test struct
 void cfree(void * value){
 	char * str = ((struct test *) value)->str;
 	free(str);
 	free(value);
 }
 
+
 int main(void){
 
-	int size = 20;
+	// The initial size of the table
+	int size = 50;
+
+	// Create the table
 	HashTable * ht = ht_create(size);
-	int nmem = 9;
+
+	// Set the custom free function for the table
+	ht_set_free(ht, cfree);
+
+	// The number of entries we enter
+	int nmem = 15;
 
 	char * key;
 	//char * value;
 	struct test * value;
 	for(int i=0; i<nmem; i++){
 		key = malloc(32);
-		//value = malloc(32);
 		value = malloc(sizeof(struct test));
 		value->str = malloc(32);
 		sprintf(key, "key %d", i);
@@ -409,25 +411,28 @@ int main(void){
 		ht_insert(ht, key, value);
 	}
 
-	//char ** keys = ht_get_keys(ht);
-	//ht_delete(ht, "key 0");
-	//ht_delete(ht, "key 1");
-	//ht_delete(ht, "key 2");
-	//ht_delete(ht, "key 2");
+	// Delte entries
+	ht_delete(ht, "key 0");
+	ht_delete(ht, "key 1");
+	ht_delete(ht, "key 2");
 
-	//clock_t start = clock();
+	// Update an entry
+	key = malloc(32);
+	value = malloc(sizeof(struct test));
+	value->str = malloc(32);
+	sprintf(key, "key %d", 3);
+	sprintf(value->str, "value %d update", 3);
+	ht_insert(ht, key, value);
+
 	for(int i=0; i<nmem; i++){
-		//char * key = keys[i];
 		key = malloc(32);
 		sprintf(key, "key %d", i);
 		Pair * pair  =  ht_get_pair(ht, key);
-		if(value==NULL) printf("no such key\n");
+		if(pair==NULL) printf("no such key\n");
 		else printf("%s : %s\n", key, ((struct test *) pair->value)->str);
 		free(key);
 	}
 
-	ht_set_free(ht, cfree);
 	ht_free(ht);
-
 
 }
