@@ -36,7 +36,7 @@ void * ht_get_pair(HashTable * ht, char * key);
 void * ht_get_value(HashTable * ht, char * key);
 char ** ht_get_keys(HashTable * ht);
 int ht_delete(HashTable * ht, char * key);
-void ht_insert(struct ht * ht , char * key, void * value);
+int ht_insert(struct ht * ht , char * key, void * value);
 void resizeTable(struct ht * ht);
 struct ht * ht_create(int length);
 void ht_set_free(struct ht * ht, void (* usr_free)(void * garbage_value));
@@ -46,9 +46,11 @@ static void die(const char * msg);
 
 ## Macros
 ```c
-#define HASH_PRIME 31 // A constant used in hashing
-#define RESIZE_THRESHOLD 0.2 // Threshold for resizing
-#define RESIZE_FACTOR 2 // factor used to resize the table
+#define HT_HASH_PRIME 31 // A constant used in hash function
+#define HT_RESIZE_THRESHOLD 0.2 // Threshold for resizing
+#define HT_RESIZE_FACTOR 2 // by how much should we resize table
+#define HT_INSERT_UPDATE 1 // return from ht\_insert when entry updated
+#define HT_INSERT_EMPTY 0 // return from ht\_insert when key is new
 ```
 
 ## Description

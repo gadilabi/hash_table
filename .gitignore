@@ -3,3 +3,4 @@
 *.txt
 playground.c
 *.o
+*.so

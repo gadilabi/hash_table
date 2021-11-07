@@ -6,6 +6,10 @@
 #include <time.h>
 #include "hash_table.h"
 
+static void die(const char * msg);
+static int hash(char * key, int mod);
+static void resizeTable(struct ht * ht);
+
 static void die(const char * msg){
 	printf("%s\n", msg);
 	exit(-1);
@@ -14,10 +18,10 @@ static void die(const char * msg){
 static int hash(char * key, int mod){
 	int h = 0;
 	for(int i=0; key[i]!='\0'; i++){
-		h = (HASH_PRIME * h + key[i])%mod ;
+		h = (HT_HASH_PRIME * h + key[i])%mod ;
 	}
 
-	h = (HASH_PRIME * h)%mod;
+	h = (HT_HASH_PRIME * h)%mod;
 
 	return h;
 }
@@ -55,7 +59,7 @@ static void resizeTable(struct ht * ht){
 	memcpy(ht_copy, ht, sizeof(HashTable));
 
 	// By how much the table is going to grow
-	int gfactor = RESIZE_FACTOR;
+	int gfactor = HT_RESIZE_FACTOR;
 	
 	// Create a new table with larger size
 	int newLength = gfactor *  ht->length;
@@ -90,13 +94,13 @@ static void resizeTable(struct ht * ht){
 
 }
 
-void ht_insert(struct ht * ht , char * key, void * value){
+int ht_insert(struct ht * ht , char * key, void * value){
 
 	// Check if the array is too full 
 	// if it is resize it
 	float filledRatio = (ht->nmem + 1)/((float)ht->length);
 
-	if(filledRatio > RESIZE_THRESHOLD){
+	if(filledRatio > HT_RESIZE_THRESHOLD){
 		resizeTable(ht);
 	}
 
@@ -117,7 +121,7 @@ void ht_insert(struct ht * ht , char * key, void * value){
 			ht->arr[finalIndex].key = key;
 			ht->arr[finalIndex].value = value;
 			ht->nmem++;
-			break;
+			return HT_INSERT_EMPTY;
 		}
 
 		// Does the entry has the same key as the one being entered
@@ -139,7 +143,8 @@ void ht_insert(struct ht * ht , char * key, void * value){
 			// Enter new key and value
 			ht->arr[finalIndex].key = key;
 			ht->arr[finalIndex].value = value;
-			break;
+
+			return HT_INSERT_UPDATE;
 		}
 
 		// If we reached the end of the array circle back to the start
